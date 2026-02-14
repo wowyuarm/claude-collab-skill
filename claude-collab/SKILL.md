@@ -1,6 +1,6 @@
 ---
 name: claude-collab
-description: Delegate coding tasks to Claude Code CLI for programmatic collaboration. Use when: (1) users ask to "use Claude Code", "delegate to Claude", or "collaborate with Claude", (2) deep codebase exploration or multi-file refactoring is needed, (3) architecture review or code analysis across a large project, (4) iterative multi-step coding tasks that benefit from Claude Code's agentic capabilities, (5) scaffolding or code generation following existing project patterns. Requires the `claude` CLI binary on PATH.
+description: "Delegate coding tasks to Claude Code CLI for programmatic collaboration. Use when: (1) users ask to \"use Claude Code\", \"delegate to Claude\", or \"collaborate with Claude\", (2) deep codebase exploration or multi-file refactoring is needed, (3) architecture review or code analysis across a large project, (4) iterative multi-step coding tasks that benefit from Claude Code's agentic capabilities, (5) scaffolding or code generation following existing project patterns. Requires the `claude` CLI binary on PATH."
 ---
 
 
