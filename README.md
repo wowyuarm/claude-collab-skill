@@ -4,33 +4,13 @@ A skill that enables AI agents to programmatically delegate coding tasks to [Cla
 
 Agents use this skill to invoke Claude Code in non-interactive (`-p`) mode for codebase exploration, multi-file refactoring, architecture analysis, and iterative development — with granular permission control, session management, and execution guardrails.
 
-## Install
-
-### Manual
-
-Copy the skill into your Claude Code skills directory:
-
-```bash
-# Personal (available across all projects)
-cp -r claude-collab-skill ~/.claude/skills/claude-collab
-
-# Project-scoped (committed to version control)
-cp -r claude-collab-skill .claude/skills/claude-collab
-```
-
-### Via npx (third-party)
-
-```bash
-npx add-skill https://github.com/<owner>/claude-collab-skill
-```
-
 ## Prerequisites
 
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed and on PATH
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed and on PATH
 
 ## Usage
 
-The skill provides `scripts/claude_exec.py`, a subprocess wrapper around `claude -p` that exposes session management, permission control, model selection, and execution limits through a unified interface.
+The skill provides `claude-collab/scripts/claude_exec.py`, a subprocess wrapper around `claude -p` that exposes session management, permission control, model selection, and execution limits through a unified interface.
 
 ```bash
 # Read-only analysis
