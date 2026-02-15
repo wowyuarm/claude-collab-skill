@@ -6,7 +6,9 @@ description: "Delegate coding tasks to Claude Code CLI for programmatic collabor
 
 # Claude Collab
 
-Invoke Claude Code CLI in non-interactive (`-p`) mode for programmatic collaboration on coding tasks.
+Delegate coding tasks to Claude Code — an agentic coding assistant that can read, search, edit files and run shell commands autonomously. This skill invokes it in non-interactive (`-p`) mode as a subprocess.
+
+**How it works**: `claude_exec.py` launches Claude Code, passes your prompt, and prints the response to **stdout** (errors to stderr). Each invocation returns the full result directly — you read the script's output to get Claude Code's answer. Exit codes: `0` success, `124` timeout, `127` claude CLI not found.
 
 ## Tool
 
@@ -94,6 +96,23 @@ python3 scripts/claude_exec.py \
   "Fix the rendering bug in src/components/Header.tsx"
 ```
 
+### Claude Code's Built-in Tools
+
+When using `--allowed-tools`, these are the tool names Claude Code recognizes:
+
+| Tool | What it does | Scoping syntax |
+|---|---|---|
+| `Read` | Read file contents | — |
+| `Edit` | Apply targeted edits to files | `Edit(src/**)` |
+| `Write` | Create or overwrite files | `Write(src/**)` |
+| `Glob` | Find files by pattern | — |
+| `Grep` | Search file contents (regex) | — |
+| `Bash` | Run shell commands | `Bash(npm test)`, `Bash(cd src && ls)` |
+| `WebFetch` | Fetch URL content | — |
+| `WebSearch` | Web search | — |
+
+Scope with glob patterns in parentheses to limit what a tool can access. Without scoping, the tool is unrestricted within the permission mode.
+
 
 ## Workflow: When and How to Collaborate
 
@@ -122,46 +141,42 @@ python3 scripts/claude_exec.py \
 | Edit + test | `--allowed-tools "Read" "Edit(...)" "Bash(npm test)"` | "Fix the bug and verify tests pass" |
 | Full autonomy | `--dangerously-skip-permissions` | Complex multi-step refactor in sandbox |
 
-#### 2. Write a focused, specific prompt
+#### 2. Write a self-contained prompt
 
-**Bad prompts** (vague, unbounded):
+Claude Code starts each invocation as a **fresh session with zero context** — it does not share your conversation history, task state, or any prior knowledge about what the user asked you to do. Your prompt is the *only* input it receives. Write it as a complete, standalone brief:
+
+- **Include concrete anchors**: file paths, function/class names, error messages, line numbers. Claude Code can explore the codebase, but telling it *where to look* saves turns and budget.
+- **State the goal explicitly**: "analyze and report" vs. "edit the code" vs. "edit and verify with tests" — Claude Code needs to know what *done* looks like.
+- **Provide necessary context that only you have**: the user's intent, constraints from earlier conversation, domain-specific requirements. If you learned something relevant during your own analysis, pass it along rather than expecting Claude Code to rediscover it.
+- **Scope the task tightly**: one focused objective per invocation. If a task has multiple stages, use sessions (see step 3).
+
+**Bad** (vague, no anchors, assumes shared context):
 - "Fix everything"
 - "Make the code better"
-- "Refactor this"
+- "Apply the changes we discussed"
 
-**Good prompts** (specific, verifiable):
+**Good** (self-contained, specific, verifiable):
 - "Read src/auth/token.py and identify why refresh tokens expire prematurely. Check the TTL calculation in the `refresh()` method."
 - "Rename all instances of `UserManager` to `UserService` across the project. Update imports accordingly."
 - "Add input validation to the `POST /users` endpoint in src/api/users.ts. Validate that email is a valid format and name is non-empty."
 
 #### 3. For multi-step tasks, use sessions
 
+Sessions let Claude Code **retain context across invocations** — it remembers what it read, analyzed, and changed. Each invocation still returns its result via stdout for you to inspect, but you don't need to repeat prior context when resuming.
+
 ```bash
-# Step 1: Analyze (read-only is safe for analysis)
+# Step 1: Analyze (read-only)
 python3 scripts/claude_exec.py --session $SESSION_ID --permission-mode plan \
   "Read the authentication module and identify security issues"
+# → stdout contains the analysis; use it to decide next steps
 
-# Step 2: Review the analysis, then apply fixes with appropriate permissions
+# Step 2: Fix (Claude Code remembers its analysis from step 1)
 python3 scripts/claude_exec.py --resume $SESSION_ID \
-  --allowed-tools "Read" "Edit(src/auth/**)" \
-  "Fix the token expiry issue you identified. Do not change the public API."
-
-# Step 3: Verify
-python3 scripts/claude_exec.py --resume $SESSION_ID \
-  --allowed-tools "Read" "Bash(npm test)" \
-  "Run the auth test suite and report results"
+  --allowed-tools "Read" "Edit(src/auth/**)" "Bash(npm test)" \
+  "Fix the token expiry issue you identified. Run the auth tests to confirm the fix."
 ```
 
-#### 4. Verify results independently
-
-After Claude Code reports completion, **always verify with your own tools**:
-- Read modified files to confirm changes are correct
-- Run tests / linters / type checkers
-- Check that no unintended files were modified
-
-Do not blindly trust the response. Claude Code is capable but not infallible.
-
-#### 5. Handle errors
+#### 4. Handle errors
 
 | Situation | Action |
 |---|---|
