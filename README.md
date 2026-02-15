@@ -18,7 +18,7 @@ python3 scripts/claude_exec.py --permission-mode plan "Analyze the architecture 
 
 # Edit with explicit tool allowlist
 python3 scripts/claude_exec.py \
-  --allowed-tools "Read" "Edit(src/**)" "Bash(npm test)" \
+  --allowed-tools "Read,Edit(src/**),Bash(npm test)" \
   "Fix the null pointer bug in src/auth.py"
 
 # Multi-turn session
@@ -38,7 +38,7 @@ Claude Code runs non-interactively and **cannot prompt for permission at runtime
 | Approach | When to Use |
 |---|---|
 | `--permission-mode plan` | Read-only analysis, no file writes or commands |
-| `--allowed-tools "Read" "Edit(src/**)"` | Controlled editing scoped to specific paths |
+| `--allowed-tools "Read,Edit(src/**)"` | Controlled editing scoped to specific paths |
 | `--dangerously-skip-permissions` | Only in fully sandboxed/isolated environments |
 
 ## Notes

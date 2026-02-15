@@ -40,11 +40,11 @@ def build_command(args: argparse.Namespace) -> list[str]:
 
     if args.allowed_tools:
         cmd.append("--allowedTools")
-        cmd.extend(args.allowed_tools)
+        cmd.extend(t.strip() for t in args.allowed_tools.split(","))
 
     if args.disallowed_tools:
         cmd.append("--disallowedTools")
-        cmd.extend(args.disallowed_tools)
+        cmd.extend(t.strip() for t in args.disallowed_tools.split(","))
 
     # Model selection (skip if third-party model is configured via env vars)
     if args.model and not is_third_party_configured():
@@ -66,8 +66,8 @@ def build_command(args: argparse.Namespace) -> list[str]:
 
     # Additional working directories
     if args.add_dir:
-        cmd.append("--add-dir")
-        cmd.extend(args.add_dir)
+        for d in args.add_dir.split(","):
+            cmd += ["--add-dir", d.strip()]
 
     # MCP configuration
     if args.mcp_config:
@@ -97,7 +97,7 @@ examples:
   %(prog)s --permission-mode plan --output-format json "List all API endpoints"
 
   # Editing with explicit tool allowlist
-  %(prog)s --allowed-tools "Read" "Edit(src/**)" "Bash(npm test)" "Explain the auth module and fix the token bug"
+  %(prog)s --allowed-tools "Read,Edit(src/**),Bash(npm test)" "Explain the auth module and fix the token bug"
 
   # Use a specific model with budget limit
   %(prog)s --model sonnet --max-budget 2.0 "Refactor the database layer"
@@ -138,15 +138,13 @@ examples:
     )
     parser.add_argument(
         "--allowed-tools",
-        nargs="+",
-        metavar="RULE",
-        help='Tool allow rules, e.g. "Read" "Edit(src/**)" "Bash(npm test)"',
+        metavar="RULES",
+        help='Comma-separated tool allow rules, e.g. "Read,Edit(src/**),Bash(npm test)"',
     )
     parser.add_argument(
         "--disallowed-tools",
-        nargs="+",
-        metavar="RULE",
-        help="Tool deny rules",
+        metavar="RULES",
+        help='Comma-separated tool deny rules, e.g. "Bash,Write"',
     )
 
     # Model selection
@@ -184,9 +182,8 @@ examples:
     # Working directory / MCP
     parser.add_argument(
         "--add-dir",
-        nargs="+",
-        metavar="PATH",
-        help="Additional working directories for Claude Code to access",
+        metavar="PATHS",
+        help='Comma-separated additional directories, e.g. "../other-project,/shared/libs"',
     )
     parser.add_argument(
         "--mcp-config",

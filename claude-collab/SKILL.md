@@ -29,14 +29,15 @@ python3 scripts/claude_exec.py --permission-mode plan --output-format json "List
 
 # Editing with explicit tool allowlist (recommended for modifications)
 python3 scripts/claude_exec.py \
-  --allowed-tools "Read" "Edit(src/**)" "Bash(npm test)" \
+  --allowed-tools "Read,Edit(src/**),Bash(npm test)" \
   "Fix the null pointer bug in src/auth.py"
 
-# Multi-turn session: create
-python3 scripts/claude_exec.py --session <uuid> "Read src/main.py and plan refactoring"
+# Multi-turn session: create (UUID required — generate one with uuidgen or python -c "import uuid; print(uuid.uuid4())")
+SESSION_ID=$(python3 -c "import uuid; print(uuid.uuid4())")
+python3 scripts/claude_exec.py --session $SESSION_ID "Read src/main.py and plan refactoring"
 
-# Multi-turn session: resume
-python3 scripts/claude_exec.py --resume <uuid> "Apply the refactoring you proposed"
+# Multi-turn session: resume (use the SAME UUID from --session)
+python3 scripts/claude_exec.py --resume $SESSION_ID "Apply the refactoring you proposed"
 
 # Continue the most recent session in this directory
 python3 scripts/claude_exec.py --continue-session "What were we working on?"
@@ -58,19 +59,19 @@ python3 scripts/claude_exec.py --timeout 600 "Migrate all tests from Jest to Vit
 
 | Option | Description |
 |---|---|
-| `--session UUID` | Create a new session with this UUID |
-| `--resume ID` | Resume an existing session by ID |
+| `--session UUID` | Create a new session with this UUID (must be a valid UUID, e.g. from `uuidgen`) |
+| `--resume ID` | Resume an existing session by its UUID |
 | `--continue-session` | Continue the most recent session in cwd |
 | `--permission-mode MODE` | `plan` (read-only), `acceptEdits`, `dontAsk`, `default` |
 | `--dangerously-skip-permissions` | Skip all permission checks (isolated envs only) |
-| `--allowed-tools RULE...` | Tool allow rules, e.g. `"Read" "Edit(src/**)"` |
-| `--disallowed-tools RULE...` | Tool deny rules |
+| `--allowed-tools RULES` | Comma-separated tool allow rules, e.g. `"Read,Edit(src/**)"` |
+| `--disallowed-tools RULES` | Comma-separated tool deny rules, e.g. `"Bash,Write"` |
 | `--model NAME` | `sonnet`, `opus`, `haiku`, or full model ID |
 | `--max-turns N` | Limit agentic turns |
 | `--max-budget N` | Limit spend in USD |
 | `--output-format FMT` | `text` (default), `json`, `stream-json` |
 | `--append-system-prompt TEXT` | Append instructions to Claude's system prompt |
-| `--add-dir PATH...` | Additional directories Claude Code can access |
+| `--add-dir PATHS` | Comma-separated additional directories, e.g. `"../other-project,/shared/libs"` |
 | `--mcp-config PATH` | MCP server configuration JSON file |
 | `--timeout SECS` | Subprocess timeout (default: 300) |
 
@@ -86,12 +87,14 @@ Since Claude Code runs non-interactively (`-p` mode), **it cannot prompt for per
 | `--allowed-tools` | Yes | Controlled | Controlled | Precise control over what's allowed |
 | `--dangerously-skip-permissions` | Yes | Yes | Yes | Sandboxed/isolated environments only |
 
+**How `--permission-mode` and `--allowed-tools` interact**: `--permission-mode` sets the *baseline* of what Claude Code may do. `--allowed-tools` then adds *specific additional tools* on top of that baseline. For example, `--permission-mode plan` blocks all edits and commands, but adding `--allowed-tools "Bash(npm test)"` will additionally allow that specific command. If you only use `--allowed-tools` without `--permission-mode`, Claude Code uses its default permission mode.
+
 **Recommended approach for modifications**: Use `--allowed-tools` to grant exactly the permissions needed:
 
 ```bash
 # Allow reading anything, editing only in src/, running only tests
 python3 scripts/claude_exec.py \
-  --allowed-tools "Read" "Glob" "Grep" "Edit(src/**)" "Bash(npm test)" \
+  --allowed-tools "Read,Glob,Grep,Edit(src/**),Bash(npm test)" \
   "Fix the rendering bug in src/components/Header.tsx"
 ```
 
@@ -111,6 +114,8 @@ When using `--allowed-tools`, these are the tool names Claude Code recognizes:
 | `WebSearch` | Web search | — |
 
 Scope with glob patterns in parentheses to limit what a tool can access. Without scoping, the tool is unrestricted within the permission mode.
+
+**Important**: `WebFetch` and `WebSearch` are network tools that require explicit allowlisting regardless of permission mode. Even `--permission-mode acceptEdits` or `dontAsk` will not grant them — you must include them in `--allowed-tools` if needed.
 
 
 ## Workflow: When and How to Collaborate
@@ -136,8 +141,8 @@ Scope with glob patterns in parentheses to limit what a tool can access. Without
 | Task Type | Permission Level | Example |
 |---|---|---|
 | Read-only analysis | `--permission-mode plan` | "What design patterns does this codebase use?" |
-| File editing | `--allowed-tools "Read" "Edit(...)"` | "Fix the bug in auth.py" |
-| Edit + test | `--allowed-tools "Read" "Edit(...)" "Bash(npm test)"` | "Fix the bug and verify tests pass" |
+| File editing | `--allowed-tools "Read,Edit(...)"` | "Fix the bug in auth.py" |
+| Edit + test | `--allowed-tools "Read,Edit(...),Bash(npm test)"` | "Fix the bug and verify tests pass" |
 | Full autonomy | `--dangerously-skip-permissions` | Complex multi-step refactor in sandbox |
 
 #### 2. Write a self-contained prompt
@@ -164,16 +169,25 @@ Claude Code starts each invocation as a **fresh session with zero context** — 
 Sessions let Claude Code **retain context across invocations** — it remembers what it read, analyzed, and changed. Each invocation still returns its result via stdout for you to inspect, but you don't need to repeat prior context when resuming.
 
 ```bash
+# Generate a UUID for the session
+SESSION_ID=$(python3 -c "import uuid; print(uuid.uuid4())")
+
 # Step 1: Analyze (read-only)
 python3 scripts/claude_exec.py --session $SESSION_ID --permission-mode plan \
   "Read the authentication module and identify security issues"
 # → stdout contains the analysis; use it to decide next steps
 
-# Step 2: Fix (Claude Code remembers its analysis from step 1)
+# Step 2: Fix (use --resume with the SAME UUID; Claude Code remembers step 1)
 python3 scripts/claude_exec.py --resume $SESSION_ID \
-  --allowed-tools "Read" "Edit(src/auth/**)" "Bash(npm test)" \
+  --allowed-tools "Read,Edit(src/auth/**),Bash(npm test)" \
   "Fix the token expiry issue you identified. Run the auth tests to confirm the fix."
 ```
+
+**Session ID rules:**
+- `--session` requires a **valid UUID** (e.g. `550e8400-e29b-41d4-a716-446655440000`). Arbitrary strings like `my-session-1` will be rejected.
+- Use `--session UUID` to **create** a new session.
+- Use `--resume UUID` to **continue** an existing session. Do not pass the same UUID to `--session` again — that will fail with "Session ID is already in use."
+- Use `--continue-session` (no UUID needed) to resume the most recent session in the current directory.
 
 #### 4. Handle errors
 
@@ -183,6 +197,61 @@ python3 scripts/claude_exec.py --resume $SESSION_ID \
 | Wrong output | Send a correction in the same session with `--resume` |
 | Exit code != 0 | Check stderr for details; may indicate a CLI or permission error |
 | Claude not found | Ensure `claude` CLI is installed and on PATH |
+
+
+## Troubleshooting
+
+### "error: the following arguments are required: prompt"
+
+The `prompt` positional argument was not parsed. This usually means `--allowed-tools` or `--disallowed-tools` consumed it. Ensure tools are passed as a **single comma-separated string**:
+
+```bash
+# WRONG — prompt gets consumed as a tool name
+--allowed-tools "Read" "Edit(src/**)" "Fix the bug"
+
+# CORRECT — single string, comma-separated
+--allowed-tools "Read,Edit(src/**)" "Fix the bug"
+```
+
+### "Invalid session ID. Must be a valid UUID"
+
+Session IDs must be valid UUIDs. Generate one with:
+```bash
+python3 -c "import uuid; print(uuid.uuid4())"
+# or
+uuidgen
+```
+
+### "Session ID is already in use"
+
+You passed an existing session's UUID to `--session` (which creates). Use `--resume` instead to continue:
+```bash
+# WRONG — tries to create a session that already exists
+--session 550e8400-e29b-41d4-a716-446655440000
+
+# CORRECT — resumes the existing session
+--resume 550e8400-e29b-41d4-a716-446655440000
+```
+
+### Tools are blocked despite permission mode
+
+`--permission-mode` only controls the baseline permissions. Specific tools like `WebFetch`, `WebSearch`, and scoped tool rules require explicit `--allowed-tools`. For example:
+
+```bash
+# WebFetch won't work with just acceptEdits — add it explicitly
+python3 scripts/claude_exec.py \
+  --permission-mode acceptEdits \
+  --allowed-tools "WebFetch,WebSearch" \
+  "Fetch the API docs from https://example.com/docs"
+```
+
+### Calling agent's exec tool blocks the command
+
+Some agents' execution tools may block commands containing tool names like `Bash` or `WebFetch` in the arguments. Workarounds:
+
+1. Store the command in a shell script and execute the script instead.
+2. Use `--dangerously-skip-permissions` if in a sandboxed environment (avoids listing tool names).
+3. Check your calling agent's execution tool documentation for allowlisting options.
 
 
 ## Notes
