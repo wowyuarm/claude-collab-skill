@@ -1,8 +1,8 @@
 # claude-collab
 
-A skill that enables AI agents to programmatically delegate coding tasks to [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI.
+A skill that enables AI agents to programmatically delegate coding tasks to [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — an agentic coding CLI that can read, search, edit files and run shell commands autonomously.
 
-Agents use this skill to invoke Claude Code in non-interactive (`-p`) mode for codebase exploration, multi-file refactoring, architecture analysis, and iterative development — with granular permission control, session management, and execution guardrails.
+Agents use this skill to invoke Claude Code in non-interactive (`-p`) mode as a subprocess. Each invocation returns Claude Code's response via stdout, making it easy to capture results and chain multi-step workflows.
 
 ## Prerequisites
 
@@ -33,7 +33,7 @@ See `SKILL.md` for the complete option reference and workflow guidance.
 
 ## Permission Model
 
-The skill encourages **minimum-privilege** usage. Instead of blanket `--dangerously-skip-permissions`, use targeted permission controls:
+Claude Code runs non-interactively and **cannot prompt for permission at runtime**. All needed permissions must be granted upfront:
 
 | Approach | When to Use |
 |---|---|

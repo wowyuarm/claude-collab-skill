@@ -77,14 +77,13 @@ python3 scripts/claude_exec.py --timeout 600 "Migrate all tests from Jest to Vit
 
 ## Permission Modes — Choose the Right Level
 
-Always use the **minimum permission level** needed for the task.
+Since Claude Code runs non-interactively (`-p` mode), **it cannot prompt for permission at runtime**. Any tool not pre-authorized will be blocked silently. You must grant all needed permissions upfront via `--permission-mode` or `--allowed-tools`.
 
 | Mode | Can Read | Can Edit | Can Run Commands | Use When |
 |---|---|---|---|---|
 | `plan` | Yes | No | No | Analysis, review, Q&A |
 | `acceptEdits` | Yes | Yes | No | Safe file editing without shell access |
-| `dontAsk` + `--allowed-tools` | Yes | Controlled | Controlled | Precise control over what's allowed |
-| `default` | Yes | Prompted | Prompted | Interactive (not useful in `-p` mode) |
+| `--allowed-tools` | Yes | Controlled | Controlled | Precise control over what's allowed |
 | `--dangerously-skip-permissions` | Yes | Yes | Yes | Sandboxed/isolated environments only |
 
 **Recommended approach for modifications**: Use `--allowed-tools` to grant exactly the permissions needed:
