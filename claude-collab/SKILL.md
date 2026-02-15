@@ -13,43 +13,43 @@ Invoke Claude Code CLI in non-interactive (`-p`) mode for programmatic collabora
 `claude_exec.py` — subprocess wrapper around `claude -p` with safety defaults and full CLI feature exposure.
 
 ```bash
-python scripts/claude_exec.py [OPTIONS] "prompt"
+python3 scripts/claude_exec.py [OPTIONS] "prompt"
 ```
 
 ### Quick Reference
 
 ```bash
 # Read-only analysis (safest — no file writes or commands)
-python scripts/claude_exec.py --permission-mode plan "Analyze the architecture of src/"
+python3 scripts/claude_exec.py --permission-mode plan "Analyze the architecture of src/"
 
 # Analysis with JSON output for structured parsing
-python scripts/claude_exec.py --permission-mode plan --output-format json "List all API endpoints"
+python3 scripts/claude_exec.py --permission-mode plan --output-format json "List all API endpoints"
 
 # Editing with explicit tool allowlist (recommended for modifications)
-python scripts/claude_exec.py \
+python3 scripts/claude_exec.py \
   --allowed-tools "Read" "Edit(src/**)" "Bash(npm test)" \
   "Fix the null pointer bug in src/auth.py"
 
 # Multi-turn session: create
-python scripts/claude_exec.py --session <uuid> "Read src/main.py and plan refactoring"
+python3 scripts/claude_exec.py --session <uuid> "Read src/main.py and plan refactoring"
 
 # Multi-turn session: resume
-python scripts/claude_exec.py --resume <uuid> "Apply the refactoring you proposed"
+python3 scripts/claude_exec.py --resume <uuid> "Apply the refactoring you proposed"
 
 # Continue the most recent session in this directory
-python scripts/claude_exec.py --continue-session "What were we working on?"
+python3 scripts/claude_exec.py --continue-session "What were we working on?"
 
 # Full autonomy (ONLY in isolated/sandboxed environments)
-python scripts/claude_exec.py --dangerously-skip-permissions "Refactor the auth module"
+python3 scripts/claude_exec.py --dangerously-skip-permissions "Refactor the auth module"
 
 # Model and budget control
-python scripts/claude_exec.py --model haiku --max-turns 5 --max-budget 1.0 "Explain this function"
+python3 scripts/claude_exec.py --model haiku --max-turns 5 --max-budget 1.0 "Explain this function"
 
 # Inject context via system prompt
-python scripts/claude_exec.py --append-system-prompt "Always use TypeScript strict mode" "Add input validation"
+python3 scripts/claude_exec.py --append-system-prompt "Always use TypeScript strict mode" "Add input validation"
 
 # Extended timeout for large tasks
-python scripts/claude_exec.py --timeout 600 "Migrate all tests from Jest to Vitest"
+python3 scripts/claude_exec.py --timeout 600 "Migrate all tests from Jest to Vitest"
 ```
 
 ### All Options
@@ -89,7 +89,7 @@ Always use the **minimum permission level** needed for the task.
 
 ```bash
 # Allow reading anything, editing only in src/, running only tests
-python scripts/claude_exec.py \
+python3 scripts/claude_exec.py \
   --allowed-tools "Read" "Glob" "Grep" "Edit(src/**)" "Bash(npm test)" \
   "Fix the rendering bug in src/components/Header.tsx"
 ```
@@ -138,16 +138,16 @@ python scripts/claude_exec.py \
 
 ```bash
 # Step 1: Analyze (read-only is safe for analysis)
-python scripts/claude_exec.py --session $SESSION_ID --permission-mode plan \
+python3 scripts/claude_exec.py --session $SESSION_ID --permission-mode plan \
   "Read the authentication module and identify security issues"
 
 # Step 2: Review the analysis, then apply fixes with appropriate permissions
-python scripts/claude_exec.py --resume $SESSION_ID \
+python3 scripts/claude_exec.py --resume $SESSION_ID \
   --allowed-tools "Read" "Edit(src/auth/**)" \
   "Fix the token expiry issue you identified. Do not change the public API."
 
 # Step 3: Verify
-python scripts/claude_exec.py --resume $SESSION_ID \
+python3 scripts/claude_exec.py --resume $SESSION_ID \
   --allowed-tools "Read" "Bash(npm test)" \
   "Run the auth test suite and report results"
 ```

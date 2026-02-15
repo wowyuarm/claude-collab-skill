@@ -14,19 +14,19 @@ The skill provides `claude-collab/scripts/claude_exec.py`, a subprocess wrapper 
 
 ```bash
 # Read-only analysis
-python scripts/claude_exec.py --permission-mode plan "Analyze the architecture of src/"
+python3 scripts/claude_exec.py --permission-mode plan "Analyze the architecture of src/"
 
 # Edit with explicit tool allowlist
-python scripts/claude_exec.py \
+python3 scripts/claude_exec.py \
   --allowed-tools "Read" "Edit(src/**)" "Bash(npm test)" \
   "Fix the null pointer bug in src/auth.py"
 
 # Multi-turn session
-python scripts/claude_exec.py --session <uuid> "Plan refactoring for src/main.py"
-python scripts/claude_exec.py --resume <uuid> "Apply the changes you proposed"
+python3 scripts/claude_exec.py --session <uuid> "Plan refactoring for src/main.py"
+python3 scripts/claude_exec.py --resume <uuid> "Apply the changes you proposed"
 
 # Model and budget control
-python scripts/claude_exec.py --model haiku --max-turns 5 --max-budget 1.0 "Explain this function"
+python3 scripts/claude_exec.py --model haiku --max-turns 5 --max-budget 1.0 "Explain this function"
 ```
 
 See `SKILL.md` for the complete option reference and workflow guidance.
@@ -40,6 +40,10 @@ The skill encourages **minimum-privilege** usage. Instead of blanket `--dangerou
 | `--permission-mode plan` | Read-only analysis, no file writes or commands |
 | `--allowed-tools "Read" "Edit(src/**)"` | Controlled editing scoped to specific paths |
 | `--dangerously-skip-permissions` | Only in fully sandboxed/isolated environments |
+
+## Notes
+
+- When using a third-party model, configure via environment variables (`ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY`). In this case, the `--model` parameter will be ignored to preserve your configuration.
 
 ## License
 

@@ -7,8 +7,16 @@ Provides sensible safety defaults while exposing key CLI capabilities.
 """
 
 import argparse
+import os
 import subprocess
 import sys
+
+
+def is_third_party_configured() -> bool:
+    """Check if third-party model is configured via environment variables."""
+    return bool(
+        os.environ.get("ANTHROPIC_BASE_URL") or os.environ.get("ANTHROPIC_API_KEY")
+    )
 
 
 def build_command(args: argparse.Namespace) -> list[str]:
@@ -38,8 +46,8 @@ def build_command(args: argparse.Namespace) -> list[str]:
         cmd.append("--disallowedTools")
         cmd.extend(args.disallowed_tools)
 
-    # Model selection
-    if args.model:
+    # Model selection (skip if third-party model is configured via env vars)
+    if args.model and not is_third_party_configured():
         cmd += ["--model", args.model]
 
     # Execution limits
@@ -144,7 +152,7 @@ examples:
     # Model selection
     parser.add_argument(
         "--model",
-        help='Model alias (sonnet, opus, haiku) or full model ID',
+        help="Model alias (sonnet, opus, haiku) or full model ID",
     )
 
     # Execution limits
