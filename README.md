@@ -2,7 +2,7 @@
 
 A skill that enables AI agents to programmatically delegate coding tasks to [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — an agentic coding CLI that can read, search, edit files and run shell commands autonomously.
 
-Agents use this skill to invoke Claude Code in non-interactive (`-p`) mode as a subprocess. Each invocation returns Claude Code's response via stdout, making it easy to capture results and chain multi-step workflows.
+Agents use this skill to invoke Claude Code in non-interactive (`-p`) mode as a subprocess. Results are returned either directly via stdout or written to a JSON task file (`--output`), supporting both synchronous and file-based async workflows.
 
 ## Prerequisites
 
@@ -13,8 +13,14 @@ Agents use this skill to invoke Claude Code in non-interactive (`-p`) mode as a 
 The skill provides `claude-collab/scripts/claude_exec.py`, a subprocess wrapper around `claude -p` that exposes session management, permission control, model selection, and execution limits through a unified interface.
 
 ```bash
-# Read-only analysis
+# Read-only analysis (stdout)
 python3 scripts/claude_exec.py --permission-mode plan "Analyze the architecture of src/"
+
+# File-based output (for longer tasks or large output)
+python3 scripts/claude_exec.py \
+  --output /tmp/analysis.json \
+  --permission-mode plan \
+  "Analyze the architecture of src/"
 
 # Edit with explicit tool allowlist
 python3 scripts/claude_exec.py \

@@ -4,12 +4,36 @@ Execute Claude Code CLI in non-interactive (--print) mode.
 
 Supports single-shot queries and multi-turn conversations via --session/--resume.
 Provides sensible safety defaults while exposing key CLI capabilities.
+
+With --output FILE, results are written to a JSON task file instead of stdout,
+enabling file-based async task delegation patterns.
 """
 
 import argparse
+import json
 import os
 import subprocess
 import sys
+import tempfile
+import time
+
+
+def atomic_write_json(path: str, data: dict) -> None:
+    """Write JSON to path atomically via tmp file + rename."""
+    dir_name = os.path.dirname(os.path.abspath(path))
+    fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, indent=2)
+            f.write("\n")
+        os.replace(tmp_path, path)
+    except BaseException:
+        # Clean up tmp file on any failure
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def is_third_party_configured() -> bool:
@@ -38,13 +62,16 @@ def build_command(args: argparse.Namespace) -> list[str]:
     elif args.permission_mode:
         cmd += ["--permission-mode", args.permission_mode]
 
+    # --allowedTools and --disallowedTools are variadic (<tools...>) in the
+    # Claude CLI, meaning they greedily consume all subsequent non-flag args.
+    # Passing tools as separate args would cause the prompt (the last positional
+    # arg) to be swallowed.  Pass the comma-separated string as a single value
+    # instead — the CLI explicitly accepts "Comma or space-separated" input.
     if args.allowed_tools:
-        cmd.append("--allowedTools")
-        cmd.extend(t.strip() for t in args.allowed_tools.split(","))
+        cmd += ["--allowedTools", args.allowed_tools]
 
     if args.disallowed_tools:
-        cmd.append("--disallowedTools")
-        cmd.extend(t.strip() for t in args.disallowed_tools.split(","))
+        cmd += ["--disallowedTools", args.disallowed_tools]
 
     # Model selection (skip if third-party model is configured via env vars)
     if args.model and not is_third_party_configured():
@@ -64,7 +91,8 @@ def build_command(args: argparse.Namespace) -> list[str]:
     if args.append_system_prompt:
         cmd += ["--append-system-prompt", args.append_system_prompt]
 
-    # Additional working directories
+    # --add-dir is variadic (<directories...>); split and pass individually.
+    # The prompt is protected by the -- separator below.
     if args.add_dir:
         for d in args.add_dir.split(","):
             cmd += ["--add-dir", d.strip()]
@@ -73,7 +101,9 @@ def build_command(args: argparse.Namespace) -> list[str]:
     if args.mcp_config:
         cmd += ["--mcp-config", args.mcp_config]
 
-    # The prompt itself
+    # Use -- to end option parsing, ensuring the prompt is never consumed
+    # by variadic options like --allowedTools, --disallowedTools, or --add-dir.
+    cmd.append("--")
     cmd.append(args.prompt)
     return cmd
 
@@ -199,9 +229,24 @@ examples:
         help="Subprocess timeout in seconds (default: 300)",
     )
 
+    # Task file output
+    parser.add_argument(
+        "--output",
+        metavar="FILE",
+        help="Write results to a JSON task file instead of stdout",
+    )
+
     args = parser.parse_args()
     cmd = build_command(args)
 
+    if args.output:
+        _run_with_output_file(cmd, args)
+    else:
+        _run_direct(cmd, args)
+
+
+def _run_direct(cmd: list[str], args: argparse.Namespace) -> None:
+    """Original behavior: run Claude Code and pipe stdout/stderr directly."""
     try:
         result = subprocess.run(
             cmd,
@@ -215,14 +260,14 @@ examples:
             "Consider increasing --timeout for complex tasks.",
             file=sys.stderr,
         )
-        sys.exit(124)  # Standard timeout exit code
+        sys.exit(124)
     except FileNotFoundError:
         print(
             "ERROR: 'claude' command not found. "
             "Install Claude Code CLI: npm install -g @anthropic-ai/claude-code",
             file=sys.stderr,
         )
-        sys.exit(127)  # Standard command-not-found exit code
+        sys.exit(127)
 
     if result.stdout:
         print(result.stdout, end="")
@@ -230,6 +275,65 @@ examples:
         print(result.stderr, end="", file=sys.stderr)
 
     sys.exit(result.returncode)
+
+
+def _run_with_output_file(cmd: list[str], args: argparse.Namespace) -> None:
+    """Write results to a JSON task file. stdout only emits the file path."""
+    output_path = os.path.abspath(args.output)
+    session_id = args.resume or args.session or None
+
+    # Phase 1: write "running" status immediately
+    running_status = {
+        "status": "running",
+        "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "pid": os.getpid(),
+    }
+    if session_id:
+        running_status["session_id"] = session_id
+    atomic_write_json(output_path, running_status)
+
+    # Phase 2: execute Claude Code synchronously
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=args.timeout,
+        )
+    except subprocess.TimeoutExpired:
+        atomic_write_json(output_path, {
+            "status": "timeout",
+            "error": f"Claude Code did not respond within {args.timeout}s",
+            "exit_code": 124,
+            "completed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        })
+        print(output_path)
+        sys.exit(124)
+    except FileNotFoundError:
+        atomic_write_json(output_path, {
+            "status": "error",
+            "error": "'claude' command not found",
+            "exit_code": 127,
+            "completed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        })
+        print(output_path)
+        sys.exit(127)
+
+    # Phase 3: write final result
+    status = "completed" if result.returncode == 0 else "error"
+    final = {
+        "status": status,
+        "output": result.stdout,
+        "exit_code": result.returncode,
+        "completed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    if result.stderr:
+        final["error"] = result.stderr
+    if session_id:
+        final["session_id"] = session_id
+    atomic_write_json(output_path, final)
+
+    print(output_path)
 
 
 if __name__ == "__main__":
