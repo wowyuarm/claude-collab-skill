@@ -12,13 +12,15 @@ Agents use this skill to invoke Claude Code in non-interactive (`-p`) mode as a 
 
 The skill provides `claude-collab/scripts/claude_exec.py`, a subprocess wrapper around `claude -p` that exposes session management, permission control, model selection, and execution limits through a unified interface.
 
+**Important:** Claude Code runs in the current working directory. Agents should `cd` to the target project before invoking the script.
+
 ```bash
 # Read-only analysis (stdout)
 python3 scripts/claude_exec.py --permission-mode plan "Analyze the architecture of src/"
 
 # File-based output (for longer tasks or large output)
 python3 scripts/claude_exec.py \
-  --output /tmp/analysis.json \
+  --output /tmp/analysis.json \  # /tmp/ is just an example; use any writable path
   --permission-mode plan \
   "Analyze the architecture of src/"
 

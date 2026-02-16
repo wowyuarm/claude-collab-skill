@@ -16,9 +16,11 @@ Results come back through one of two channels:
 - **Direct (stdout)** — for quick tasks where you read the output immediately
 - **Task file (JSON)** — for longer tasks or when output may exceed pipe limits
 
-## Three Work Modes
+## Three Usage Patterns
 
-### 1. Instant Mode (Synchronous)
+**Note:** These are usage patterns, not command-line `--mode` options. Agents should choose the pattern that matches their needs and use the corresponding command-line arguments shown below.
+
+### 1. Instant Pattern (Synchronous)
 
 Run a task and get the result directly on stdout. Best for quick queries and short outputs.
 
@@ -27,7 +29,7 @@ python3 scripts/claude_exec.py --permission-mode plan "Analyze the architecture 
 # → stdout contains the full response
 ```
 
-### 2. Task Mode (File-Based)
+### 2. Task Pattern (File-Based)
 
 Run a task and write the result to a JSON file. Best for longer tasks or when output may be large. The script writes a `"running"` status immediately, then updates the file when done.
 
@@ -38,6 +40,7 @@ python3 scripts/claude_exec.py \
   "Analyze the architecture of src/"
 # → stdout prints only the file path
 # → read /tmp/analysis.json for the result
+# Note: /tmp/ is just an example; replace with any writable path
 ```
 
 **Task file lifecycle:**
@@ -65,7 +68,7 @@ python3 scripts/claude_exec.py \
 | `error` | Finished with non-zero exit code |
 | `timeout` | Exceeded `--timeout` |
 
-### 3. Session Mode (Multi-Step)
+### 3. Session Pattern (Multi-Step)
 
 Use sessions when a task requires multiple steps and Claude Code should retain context between them. Combine with `--output` for file-based results.
 
@@ -86,6 +89,11 @@ python3 scripts/claude_exec.py \
   --allowed-tools "Read,Edit(src/auth/**),Bash(npm test)" \
   "Fix the token expiry issue you identified. Run tests to confirm."
 ```
+**Important notes for agents:**
+- **Working directory:** Claude Code uses the **current working directory** where the script is invoked. Agents should `cd` to the target project before calling this script.
+- **Session storage:** Session state is automatically managed by Claude Code in `~/.claude/projects/` (or `~/.claude/sessions/` depending on version).
+- **Timeout:** Complex tasks may require longer timeouts; consider increasing `--timeout` beyond the default 300 seconds if needed.
+- **Paths:** `/tmp/` in examples is just a placeholder; use any writable path for `--output`.
 
 **Session ID rules:**
 - `--session UUID` **creates** a new session (UUID required, e.g. from `uuidgen`)
@@ -220,8 +228,8 @@ Some agents' execution tools block commands containing tool names like `Bash` in
 
 ## Notes
 
-- Claude Code runs in the current working directory. Use `--add-dir` for cross-project access.
-- The calling tool's execution timeout must be >= the `--timeout` value.
-- Session state is managed by Claude Code in `~/.claude/sessions/`.
-- `--max-turns` and `--max-budget` are safety guardrails for automated pipelines.
-- Task files are written atomically (tmp + rename) — safe to poll for status changes.
+- **Working directory:** Claude Code runs in the current working directory where the script is invoked. Agents should `cd` to the target project before calling. Use `--add-dir` for cross-project access.
+- **Session storage:** Session state is managed by Claude Code in `~/.claude/projects/` (or `~/.claude/sessions/` in older versions).
+- **Timeout coordination:** The calling tool's execution timeout must be >= the script's `--timeout` value.
+- **Safety limits:** `--max-turns` and `--max-budget` are safety guardrails for automated pipelines.
+- **Atomic writes:** Task files are written atomically (tmp + rename) — safe to poll for status changes.
