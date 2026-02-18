@@ -134,7 +134,12 @@ examples:
 """,
     )
 
-    parser.add_argument("prompt", help="The prompt to send to Claude Code")
+    parser.add_argument(
+        "prompt",
+        nargs="?",
+        default=None,
+        help="The prompt to send to Claude Code (omit if using --plan-file)",
+    )
 
     # Session management
     session_group = parser.add_mutually_exclusive_group()
@@ -225,8 +230,8 @@ examples:
     parser.add_argument(
         "--timeout",
         type=int,
-        default=300,
-        help="Subprocess timeout in seconds (default: 300)",
+        default=600,
+        help="Subprocess timeout in seconds (default: 600)",
     )
 
     # Task file output
@@ -236,7 +241,36 @@ examples:
         help="Write results to a JSON task file instead of stdout",
     )
 
+    # Plan file input
+    parser.add_argument(
+        "--plan-file",
+        metavar="PATH",
+        help="Read execution plan from file instead of command line argument",
+    )
+
     args = parser.parse_args()
+
+    # Resolve prompt from --plan-file if provided
+    if args.plan_file:
+        try:
+            with open(args.plan_file) as f:
+                args.prompt = f.read()
+        except FileNotFoundError:
+            print(
+                f"ERROR: Plan file not found: {args.plan_file}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        except OSError as e:
+            print(
+                f"ERROR: Cannot read plan file: {e}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    if not args.prompt:
+        parser.error("prompt is required (provide as argument or via --plan-file)")
+
     cmd = build_command(args)
 
     if args.output:

@@ -1,57 +1,62 @@
 # claude-collab
 
-A skill that enables AI agents to programmatically delegate coding tasks to [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — an agentic coding CLI that can read, search, edit files and run shell commands autonomously.
+An execution delegation skill for AI assistants. Enables your AI assistant (OpenClaw) to delegate coding tasks to [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI (the executor) programmatically.
 
-Agents use this skill to invoke Claude Code in non-interactive (`-p`) mode as a subprocess. Results are returned either directly via stdout or written to a JSON task file (`--output`), supporting both synchronous and file-based async workflows.
+**The workflow:** Your assistant understands the project, researches via subagents, formulates a detailed plan, then delegates execution to Claude Code. Results come back for review.
 
 ## Prerequisites
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed and on PATH
 
-## Usage
+## Quick Start
 
-The skill provides `claude-collab/scripts/claude_exec.py`, a subprocess wrapper around `claude -p` that exposes session management, permission control, model selection, and execution limits through a unified interface.
+**Recommended to use with [OpenContext](https://github.com/wowyuarm/opencontext)** — get project context, delegate to Claude Code.
 
-**Important:** Claude Code runs in the current working directory. Agents should `cd` to the target project before invoking the script.
+The skill provides `claude-collab/scripts/claude_exec.py`, a subprocess wrapper around `claude -p`.
+
+**Important:** Claude Code runs in the current working directory. Always `cd` to the target project first.
 
 ```bash
-# Read-only analysis (stdout)
-python3 scripts/claude_exec.py --permission-mode plan "Analyze the architecture of src/"
+# Execute a plan with full permissions (recommended default)
+cd /path/to/project && python3 scripts/claude_exec.py \
+  --dangerously-skip-permissions \
+  "## Task
+Implement input validation for POST /users
 
-# File-based output (for longer tasks or large output)
-python3 scripts/claude_exec.py \
-  --output /tmp/analysis.json \  # /tmp/ is just an example; use any writable path
-  --permission-mode plan \
-  "Analyze the architecture of src/"
+## Steps
+1. Add email format and non-empty name validation in src/api/users.ts
+2. Add tests in tests/api/users.test.ts
+3. Run npm test
 
-# Edit with explicit tool allowlist
-python3 scripts/claude_exec.py \
-  --allowed-tools "Read,Edit(src/**),Bash(npm test)" \
-  "Fix the null pointer bug in src/auth.py"
+## Acceptance Criteria
+- [ ] Invalid email returns 400
+- [ ] Empty name returns 400
+- [ ] npm test passes"
+
+# Long plans — read from file
+cd /path/to/project && python3 scripts/claude_exec.py \
+  --dangerously-skip-permissions \
+  --plan-file /tmp/execution-plan.md
+
+# File-based output for longer tasks
+cd /path/to/project && python3 scripts/claude_exec.py \
+  --dangerously-skip-permissions \
+  --output /tmp/result.json \
+  --plan-file /tmp/execution-plan.md
 
 # Multi-turn session
-python3 scripts/claude_exec.py --session <uuid> "Plan refactoring for src/main.py"
-python3 scripts/claude_exec.py --resume <uuid> "Apply the changes you proposed"
-
-# Model and budget control
-python3 scripts/claude_exec.py --model haiku --max-turns 5 --max-budget 1.0 "Explain this function"
+SESSION_ID=$(python3 -c "import uuid; print(uuid.uuid4())")
+cd /path/to/project && python3 scripts/claude_exec.py \
+  --dangerously-skip-permissions --session $SESSION_ID "Step 1 plan"
+cd /path/to/project && python3 scripts/claude_exec.py \
+  --dangerously-skip-permissions --resume $SESSION_ID "Step 2 plan"
 ```
 
-See `SKILL.md` for the complete option reference and workflow guidance.
-
-## Permission Model
-
-Claude Code runs non-interactively and **cannot prompt for permission at runtime**. All needed permissions must be granted upfront:
-
-| Approach | When to Use |
-|---|---|
-| `--permission-mode plan` | Read-only analysis, no file writes or commands |
-| `--allowed-tools "Read,Edit(src/**)"` | Controlled editing scoped to specific paths |
-| `--dangerously-skip-permissions` | Only in fully sandboxed/isolated environments |
+See `SKILL.md` for the complete delegation protocol, execution plan template, result handling, and error recovery guidance.
 
 ## Notes
 
-- When using a third-party model, configure via environment variables (`ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY`). In this case, the `--model` parameter will be ignored to preserve your configuration.
+- When using a third-party model, configure via environment variables (`ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY`). The `--model` parameter will be ignored to preserve your configuration.
 
 ## License
 
