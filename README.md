@@ -1,23 +1,31 @@
-# claude-collab
+# dev-workflow
 
-An execution delegation skill for AI assistants. Enables your AI assistant (OpenClaw) to delegate coding tasks to [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI (the executor) programmatically.
+A development collaboration protocol for AI assistants. Provides a dual-path workflow for coding tasks: **spawn subagents** for lightweight changes, or delegate to **[Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI** for complex refactors.
 
-**The workflow:** Your assistant understands the project, researches via subagents, formulates a detailed plan, then delegates execution to Claude Code. Results come back for review.
+**The workflow:** Your assistant understands the project (OpenContext), researches the codebase (subagents), formulates a plan, executes via the appropriate path, reviews, and creates a PR.
 
 ## Prerequisites
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed and on PATH
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed and on PATH (only needed for Path B)
 
 ## Quick Start
 
-**Recommended to use with [OpenContext](https://github.com/wowyuarm/opencontext)** — get project context, delegate to Claude Code.
+**Recommended to use with [OpenContext](https://github.com/wowyuarm/opencontext)** — get project context before executing.
 
-The skill provides `claude-collab/scripts/claude_exec.py`, a subprocess wrapper around `claude -p`.
+### Path A: Spawn Subagent (lightweight)
+
+For small–medium changes (<200 lines, 1–3 files). Your assistant spawns a subagent with a detailed task prompt directly — no external CLI needed.
+
+### Path B: Claude Code CLI (heavyweight)
+
+For large refactors, multi-step sessions, or when CLAUDE.md project rules should apply.
+
+The skill provides `dev-workflow/scripts/claude_exec.py`, a subprocess wrapper around `claude -p`.
 
 **Important:** Claude Code runs in the current working directory. Always `cd` to the target project first.
 
 ```bash
-# Execute a plan with full permissions (recommended default)
+# Execute a plan with full permissions
 cd /path/to/project && python3 scripts/claude_exec.py \
   --dangerously-skip-permissions \
   "## Task
@@ -43,20 +51,13 @@ cd /path/to/project && python3 scripts/claude_exec.py \
   --dangerously-skip-permissions \
   --output /tmp/result.json \
   --plan-file /tmp/execution-plan.md
-
-# Multi-turn session
-SESSION_ID=$(python3 -c "import uuid; print(uuid.uuid4())")
-cd /path/to/project && python3 scripts/claude_exec.py \
-  --dangerously-skip-permissions --session $SESSION_ID "Step 1 plan"
-cd /path/to/project && python3 scripts/claude_exec.py \
-  --dangerously-skip-permissions --resume $SESSION_ID "Step 2 plan"
 ```
 
-See `SKILL.md` for the complete delegation protocol, execution plan template, result handling, and error recovery guidance.
+See `SKILL.md` for the complete workflow protocol, execution plan template, review protocol, git branch workflow, and error recovery guidance.
 
 ## Notes
 
-- When using a third-party model, configure via environment variables (`ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY`). The `--model` parameter will be ignored to preserve your configuration.
+- When using a third-party model, configure via environment variables (`ANTHROPIC_BASE_URL`, `ANTHROPIC_API_KEY`). The `--model` parameter will be ignored.
 
 ## License
 
